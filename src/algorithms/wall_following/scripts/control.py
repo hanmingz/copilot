@@ -17,6 +17,7 @@ throttle = 0.0
 turn = 0.0
 VMAX = 2.00 # meters per second
 ANGLE_RANGE = 270 # Hokuyo 10LX has 270 degrees scan
+old_velocity = 0.0
 
 def getRange(data, angle):
 	# data: single message from topic /scan
@@ -58,12 +59,13 @@ def laser_callback(laser_data):
 	global turn
 	global deadman_butt
 	global VMAX
+	global old_velocity
 	min_dist = get_min_dist(laser_data)
 	velocity_ratio = 0.5 * min_dist
 	msg = drive_param()
 	msg.angle = turn * 24 * np.pi / 180 + servo_offset
-	if min_dist < 0.5 and throttle * VMAX < -1:
-		velocity_ratio = 0
+	if min_dist < 1:# and throttle * VMAX < -1.5:
+		velocity_ratio = 0.2 * min_dist
 	if velocity_ratio > 1:
 		velocity_ratio = 1
 
@@ -76,6 +78,11 @@ def laser_callback(laser_data):
 	if not deadman_butt:
 		msg.velocity = 0
 		msg.angle = 0
+
+	if msg.velocity < 0:
+		if msg.velocity - old_velocity < -0.05:
+			msg.velocity = old_velocity - 0.05
+		old_velocity = msg.velocity
 
 	print "Velocity", msg.velocity
 	print "Angle in Degrees", msg.angle*180/np.pi

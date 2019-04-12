@@ -15,8 +15,8 @@ def vel_and_angle(data):
 	msg.header.frame_id = "base_link";
 
 	msg.drive.speed = data.velocity
-	msg.drive.acceleration = 1
-	msg.drive.jerk = 1
+	msg.drive.acceleration = 3
+	msg.drive.jerk = 3
 	msg.drive.steering_angle = data.angle
 	msg.drive.steering_angle_velocity = 1
 
