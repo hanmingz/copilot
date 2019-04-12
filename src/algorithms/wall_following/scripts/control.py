@@ -2,36 +2,67 @@
 
 import rospy
 import message_filters
+import math
 from race.msg import drive_param
 from wall_following.msg import pid_input
 from sensor_msgs.msg import Joy
+from sensor_msgs.msg import LaserScan
 import numpy as np
 
 pub = rospy.Publisher('drive_parameters', drive_param, queue_size=1)
 
-kp = 5.0
-kd = 0.01
-ki = 0.0
 servo_offset = 0.0
-prev_error = 0.0 
-error = 0.0
-integral = 0.0
 deadman_butt = 0
 throttle = 0.0
 turn = 0.0
 VMAX = 2.00 # meters per second
+ANGLE_RANGE = 270 # Hokuyo 10LX has 270 degrees scan
 
-def control(error_data):
-	global integral
-	global prev_error
-	global kp
-	global ki
-	global kd
+def getRange(data, angle):
+	# data: single message from topic /scan
+	# angle: between -45 to 225 degrees, where 0 degrees is directly to the right
+	# Outputs length in meters to object with angle in lidar scan field of view
+	if angle > 179.9:
+		angle = 179.9
+	index = len(data.ranges) * (angle + 45) / ANGLE_RANGE
+	dist = data.ranges[int(index)]
+	if math.isinf(dist):
+		return 10.0
+	if math.isnan(dist):
+		return 4.0
+	return data.ranges[int(index)]
+
+def filter(laser_data):
+	filter_array = np.array([0.25, 0.25, 0.25, 0.25])
+	return np.convolve(laser_data, filter_array)
+
+def get_velocity_ratio(laser_data):
+	global turn
+	laser_array = filter(laser_data.ranges)
+	length = len(laser_array)
+	min_dist = 30.0
+	for i in range(11):
+		index = length *(turn*24 + 90 + 45 + (i-5)*15) / ANGLE_RANGE
+		dist = laser_array[int(index)]
+		if math.isinf(dist):
+			dist = 10.0
+		if math.isnan(dist):
+			dist = 4.0
+		if np.sin(np.abs((i-5)*15) * np.pi / 180) < 0.2 / dist:
+			min_dist = min(min_dist, dist)
+
+	if min_dist > 2:
+		return 1.0
+	else:
+		return min_dist * 0.5	
+
+
+def laser_callback(laser_data):
 	global throttle
 	global turn
 	global deadman_butt
 	global VMAX
-	velocity_ratio = error_data.pid_vel
+	velocity_ratio = get_velocity_ratio(laser_data)
 
 	msg = drive_param()
 	msg.angle = turn * 24 * np.pi / 180 + servo_offset
@@ -64,7 +95,7 @@ def joy_callback(data):
 
 def listener():
 	rospy.init_node('pid_controller', anonymous=True)
- 	rospy.Subscriber("error", pid_input, control)
+ 	rospy.Subscriber("scan", LaserScan, laser_callback)
 	rospy.Subscriber("vesc/joy", Joy, joy_callback)
 	print("control.py finished setup")
 	rospy.spin()
