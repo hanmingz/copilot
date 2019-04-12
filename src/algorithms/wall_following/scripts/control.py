@@ -36,7 +36,7 @@ def filter(laser_data):
 	filter_array = np.array([0.25, 0.25, 0.25, 0.25])
 	return np.convolve(laser_data, filter_array)
 
-def get_velocity_ratio(laser_data):
+def get_min_dist(laser_data):
 	global turn
 	laser_array = filter(laser_data.ranges)
 	length = len(laser_array)
@@ -51,26 +51,27 @@ def get_velocity_ratio(laser_data):
 		if np.sin(np.abs((i-5)*15) * np.pi / 180) < 0.2 / dist:
 			min_dist = min(min_dist, dist)
 
-	if min_dist > 2:
-		return 1.0
-	else:
-		return min_dist * 0.5	
-
+	return min_dist
 
 def laser_callback(laser_data):
 	global throttle
 	global turn
 	global deadman_butt
 	global VMAX
-	velocity_ratio = get_velocity_ratio(laser_data)
-
+	min_dist = get_min_dist(laser_data)
+	velocity_ratio = 0.5 * min_dist
 	msg = drive_param()
 	msg.angle = turn * 24 * np.pi / 180 + servo_offset
+	if min_dist < 0.5 and throttle * VMAX < -1:
+		velocity_ratio = 0
+	if velocity_ratio > 1:
+		velocity_ratio = 1
+
 	if throttle < 0:
 		print("velocity ratio", velocity_ratio)
 		msg.velocity = velocity_ratio * throttle * VMAX
 	else:
-		msg.velocity = throttle
+		msg.velocity = throttle * 0.5
 		
 	if not deadman_butt:
 		msg.velocity = 0

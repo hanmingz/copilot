@@ -1,5 +1,5 @@
 joy_node:
-  dev: /dev/input/js1
+  dev: /dev/input/joypad-f710
   deadzone: 0.01
   autorepeat_rate: 20
   coalesce_interval: 0.01
