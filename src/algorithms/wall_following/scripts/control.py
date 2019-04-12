@@ -19,6 +19,7 @@ integral = 0.0
 deadman_butt = 0
 throttle = 0.0
 turn = 0.0
+VMAX = 2.00 # meters per second
 
 def control(error_data):
 	global integral
@@ -29,15 +30,14 @@ def control(error_data):
 	global throttle
 	global turn
 	global deadman_butt
+	global VMAX
 	velocity_ratio = error_data.pid_vel
-	angle = servo_offset
-	error = 5*error_data.pid_error
 
 	msg = drive_param()
-	msg.angle = turn * 24 * np.pi / 180
+	msg.angle = turn * 24 * np.pi / 180 + servo_offset
 	if throttle < 0:
 		print("velocity ratio", velocity_ratio)
-		msg.velocity = velocity_ratio * throttle * 2
+		msg.velocity = velocity_ratio * throttle * VMAX
 	else:
 		msg.velocity = throttle
 		
