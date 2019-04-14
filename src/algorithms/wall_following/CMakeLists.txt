@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(wall_following)
+project(wall_following CXX)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -13,7 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   message_generation
   ackermann_msgs
-  race
+  sensor_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -53,8 +53,8 @@ find_package(catkin REQUIRED COMPONENTS
  add_message_files(
    FILES
 #   pid_input.msg
-   drive_values.msg
-   drive_param.msg
+#   drive_values.msg
+#   drive_param.msg
  )
 
 ## Generate services in the 'srv' folder
@@ -76,7 +76,8 @@ find_package(catkin REQUIRED COMPONENTS
    DEPENDENCIES
    std_msgs
    ackermann_msgs
-   race
+   sensor_msgs
+   #race
  )
 
 ################################################
@@ -111,7 +112,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #   LIBRARIES wall_following
-   CATKIN_DEPENDS roscpp rospy std_msgs message_runtime ackermann_msgs race
+   CATKIN_DEPENDS roscpp rospy std_msgs message_runtime ackermann_msgs sensor_msgs
 #   DEPENDS system_lib
 )
 
@@ -127,19 +128,19 @@ include_directories(
 )
 
 ## Declare a C++ library
-add_library(${PROJECT_NAME}
-   #src/algorithms/${PROJECT_NAME}/scripts/wall_following.cpp
- )
+#add_library(${PROJECT_NAME}
+   #
+ #)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable($sim_connector_node src/algorithms/wall_following/scripts/sim_connector.cpp)
+add_executable(control scripts/control.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -149,12 +150,13 @@ add_executable($sim_connector_node src/algorithms/wall_following/scripts/sim_con
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-# add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+ #add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(control ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(${PROJECT_NAME}_node
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(control
+   ${catkin_LIBRARIES}
+ )
 
 #############
 ## Install ##

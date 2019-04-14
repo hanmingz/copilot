@@ -3,7 +3,7 @@
 
   <include file="$(find racecar)/launch/teleop.launch"/>
   <!--<node pkg="wall_following" name="pid_error_node" type="pid_error.py" output="screen"/> -->
-  <node pkg="wall_following" name="control_node" type="control.py" output="screen"/>
-  <node pkg="wall_following" name="sim_connector_node" type="sim_connector_node" output="screen"/>
+  <node pkg="wall_following" name="control_node" type="control" output="screen"/>
+  <!--<node pkg="wall_following" name="sim_connector_node" type="sim_connector_node" output="screen"/> -->
 
 </launch>
