@@ -85,7 +85,7 @@ namespace control {
 		for(int i = 0; i < 11; i++){
 			int index = (int)(length * (turn * 24 + 90 + 45 + (i - 5) * 15) / ANGLE_RANGE);
 			float dist = filtered[index];
-			if((sin(abs((i-5)*15)) * M_PI / 180) < (HALF_WIDTH / dist)){
+			if(sin(abs((i-5)*15) * M_PI / 180) < (HALF_WIDTH / dist)){
 				min_dist = std::min(min_dist, dist);			
 			}		
 		}
