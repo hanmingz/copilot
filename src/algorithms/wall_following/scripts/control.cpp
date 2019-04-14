@@ -70,7 +70,7 @@ namespace control {
 		std::vector<int> buttons = data->buttons;
 		deadman_butt = buttons[4];
 		std::vector<float> axes = data->axes;
-		throttle = axes[1];
+		throttle = axes[1] * -1.0;
 		turn = axes[2];
 	}
 
@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
 	control::ackermann_pub_ = n.advertise<ackermann_msgs::AckermannDriveStamped>
 	("/vesc/ackermann_cmd_mux/input/teleop", 5);
 	control::laser_sub_ = n.subscribe("scan", 2, control::laser_callback);
-	control::joy_sub_ = n.subscribe("vesc/joy", 2, control::joy_callback);
+	control::joy_sub_ = n.subscribe("joy", 2, control::joy_callback);
 	ROS_INFO("Start control node CPP!");
 	ros::spin();
 	return 0;
