@@ -36,28 +36,33 @@ namespace control {
 				ROS_INFO("velocity ratio: %f", velocity_ratio);
 				msg.drive.speed = velocity_ratio * throttle * VMAX;
 			} else {
-				msg.drive.speed = throttle * 0.5;
+				msg.drive.speed = throttle;
 			}
-			if(!deadman_butt) {
+			if(deadman_butt == 0) {
 				msg.drive.speed = 0;
 				msg.drive.steering_angle = 0;
 			}
 			
-
-			ROS_INFO("Velocity: %f", msg.drive.speed);
-			ROS_INFO("Angles in Degrees: %f", msg.drive.steering_angle*180/M_PI);
-
+/*
 			if(min_dist < 1 && throttle > 0){
-				msg.drive.acceleration = 3;
-				msg.drive.jerk = 3;
+				msg.drive.acceleration = 1;
+				msg.drive.jerk = 1;
 			} else {
 				msg.drive.acceleration = 1;
 				msg.drive.jerk = 1;
-			}
+			}*/
+			msg.drive.acceleration = 1;
+			msg.drive.jerk = 1;
+			/*if(abs(msg.drive.speed) < 0.1){
+				msg.drive.speed = 0;			
+			}*/
+
 			msg.drive.steering_angle_velocity = 1;
 			msg.header.stamp = ros::Time::now();
 			msg.header.frame_id = "base_link";
 			ackermann_pub_.publish(msg);
+			ROS_INFO("Velocity: %f", msg.drive.speed);
+			ROS_INFO("Angles in Degrees: %f", msg.drive.steering_angle*180/M_PI);
 		}
 	}
 
