@@ -5,6 +5,9 @@
 #include <ackermann_msgs/AckermannDriveStamped.h>
 
 namespace control {
+	enum decision {CURRENT, FOLLOWL, FOLLOWR, STOP};
+
+
 	ros::Publisher ackermann_pub_;
 	ros::Subscriber laser_sub_;
 	ros::Subscriber joy_sub_;
@@ -13,16 +16,29 @@ namespace control {
 	int deadman_butt = 0;
 	float throttle = 0.0;
 	float turn = 0.0;
-	float VMAX = 2.00; // meters per second
-	int ANGLE_RANGE = 270; // Hokuyo 10LX has 270 degrees scan
-	float HALF_WIDTH = 0.2;
+	const float VMAX = 2.00; // meters per second
+	const int ANGLE_RANGE = 270; // Hokuyo 10LX has 270 degrees scan
+	const float HALF_WIDTH = 0.2;
+	float angle_left = 114.0;
+	float angle_right = 66.0;
+	const float RMAX = 1.0;
+
+	float trigger_L_d = 0.0;
+	float trigger_R_d = 0.0;
+	float trigger_L_theta = 0.0;
+	float trigger_R_theta = 0.0;
 
 	float get_min_dist(const sensor_msgs::LaserScan::ConstPtr& data);
+	bool leftOk(float angle, float dist);
+	bool rightOk(float angle, float dist);
 
 	void laser_callback(const sensor_msgs::LaserScan::ConstPtr& data) {
 		if(ros::ok()) {
 			ackermann_msgs::AckermannDriveStamped msg;
-			float min_dist = get_min_dist(data);
+			decision dec = get_decision(data);
+
+			//TODO add follow L, R, CURRENT, STOP
+
 			float velocity_ratio = 0.5 * min_dist;
 			msg.drive.steering_angle = turn * 24 * M_PI / 180 + servo_offset;
 			if(min_dist < 2) {
@@ -72,10 +88,11 @@ namespace control {
 		std::vector<float> axes = data->axes;
 		throttle = axes[1] * -1.0;
 		turn = axes[2];
+		//ROS_INFO("turn: %f", turn);
 	}
 
 
-	float get_min_dist(const sensor_msgs::LaserScan::ConstPtr& data) {
+	decision get_decision(const sensor_msgs::LaserScan::ConstPtr& data) {
 		float angle_min = data->angle_min;
 		float angle_max = data->angle_max;
 		float angle_inc = data->angle_increment;
@@ -86,16 +103,68 @@ namespace control {
 			filtered.push_back((ranges[i] + ranges[i+1] + ranges[i+2] + ranges[i+3]) * 0.25);
 		}
 		float min_dist = 30.0;
+		float angle = 0.0;
 		int length = num - 3;
+		bool current = true;
+		bool followL = true;
+		bool followR = true;
+		trigger_L_d = 0.0;
+		trigger_R_d = 0.0;
+		trigger_L_theta = 0.0;
+		trigger_R_theta = 0.0;
 		for(int i = 0; i < 11; i++){
 			int index = (int)(length * (turn * 24 + 90 + 45 + (i - 5) * 15) / ANGLE_RANGE);
 			float dist = filtered[index];
 			if(sin(abs((i-5)*15) * M_PI / 180) < (HALF_WIDTH / dist)){
-				min_dist = std::min(min_dist, dist);			
+				min_dist = std::min(min_dist, dist);	
+				angle = turn*24 + (i-5) * 15; //angle relative to front, right is negative
+				if(dist < 1.5){
+					current = false;
+				}
+				
+				followL &= leftOk(angle, dist, &trigger_L_d, &trigger_L_theta);
+				followR &= rightOk(angle, dist, &trigger_R_d, &trigger_R_theta);	
 			}		
 		}
-		return min_dist;
+		// Determin follow_right or follow_left or stop
+		if(current) {
+			return CURRENT;
+		} else if(followL && followR) {
+			if(turn < 0){ //user turning right
+				return FOLLOWL;			
+			} else { //user turning left
+				return FOLLOWR;
+			}
+		} else if(followL){return FOLLOWL;}
+		else if(followR) {return FOLLOWR;}
+		else {return STOP;}
 	}
+
+	bool leftOk(float angle, float dist, float* trigger_d, float* trigger_theta){
+		float a = RMAX - HALF_WIDTH + dist * sin(angle);
+		float b = dist * cos(angle);
+		if(dist < *trigger_d){
+			*trigger_d = dist;
+			*trigger_theta = angle;
+		}
+		return pow(a, 2) + pow(b, 2) > pow(RMAX, 2);
+	}
+
+	bool rightOk(float angle, float dist, float* trigger_d, float* trigger_theta){
+		angle = -1.0 * angle;
+		float a = RMAX - HALF_WIDTH + dist * sin(angle);
+		float b = dist * cos(angle);
+		if(dist < *trigger_d){
+			*trigger_d = dist;
+			*trigger_theta = angle;
+		}
+		return pow(a, 2) + pow(b, 2) > pow(RMAX, 2);
+	}
+
+	//TODO: add follow left
+	float followLeft()
+	//TODO: add follow right
+
 }
 
 int main(int argc, char** argv) {
