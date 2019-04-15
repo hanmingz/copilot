@@ -25,14 +25,14 @@ namespace control {
 			float min_dist = get_min_dist(data);
 			float velocity_ratio = 0.5 * min_dist;
 			msg.drive.steering_angle = turn * 24 * M_PI / 180 + servo_offset;
-			if(min_dist < 1) {
-				velocity_ratio = 0.5 * min_dist * min_dist * min_dist;
+			if(min_dist < 2) {
+				velocity_ratio =  min_dist * min_dist * min_dist / 8.0;
 			}
 			if(velocity_ratio > 1) {
 				velocity_ratio = 1;
 			}
 
-			if(throttle > 0) {
+			if(throttle < 0) {
 				ROS_INFO("velocity ratio: %f", velocity_ratio);
 				msg.drive.speed = velocity_ratio * throttle * VMAX;
 			} else {
@@ -43,14 +43,14 @@ namespace control {
 				msg.drive.steering_angle = 0;
 			}
 			
-/*
-			if(min_dist < 1 && throttle > 0){
-				msg.drive.acceleration = 1;
-				msg.drive.jerk = 1;
+
+			if(min_dist < 1 && throttle < 0){
+				msg.drive.acceleration = 3;
+				msg.drive.jerk = 3;
 			} else {
 				msg.drive.acceleration = 1;
 				msg.drive.jerk = 1;
-			}*/
+			}
 			msg.drive.acceleration = 1;
 			msg.drive.jerk = 1;
 			/*if(abs(msg.drive.speed) < 0.1){
@@ -61,8 +61,8 @@ namespace control {
 			msg.header.stamp = ros::Time::now();
 			msg.header.frame_id = "base_link";
 			ackermann_pub_.publish(msg);
-			ROS_INFO("Velocity: %f", msg.drive.speed);
-			ROS_INFO("Angles in Degrees: %f", msg.drive.steering_angle*180/M_PI);
+			//ROS_INFO("Velocity: %f", msg.drive.speed);
+			//ROS_INFO("Angles in Degrees: %f", msg.drive.steering_angle*180/M_PI);
 		}
 	}
 
@@ -70,7 +70,7 @@ namespace control {
 		std::vector<int> buttons = data->buttons;
 		deadman_butt = buttons[4];
 		std::vector<float> axes = data->axes;
-		throttle = axes[1];
+		throttle = axes[1] * -1.0;
 		turn = axes[2];
 	}
 
