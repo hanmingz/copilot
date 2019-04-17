@@ -147,7 +147,7 @@ namespace control {
 		ros::Duration delta_t = data->header.stamp - old_time;
 		float delta_d = old_min_dist - min_dist;
 		float appr_v = delta_d / ((float)delta_t.nsec / (double)1000000000L);
-		if(min_dist < 1.5){ //velocity and min_dist function to determine current
+		if(appr_v > min_dist && min_dist < 1.5){ //velocity and min_dist function to determine current
 			current = false;
 		}
 
@@ -159,8 +159,10 @@ namespace control {
 		} else if(followL && followR) {
 			if(turn < 0){ //user turning right
 				return FOLLOWL;			
-			} else { //user turning left
+			} else if(turn > 0){ //user turning left
 				return FOLLOWR;
+			} else {
+				return STOP;
 			}
 		} else if(followL){return FOLLOWL;}
 		else if(followR) {return FOLLOWR;}
