@@ -16,7 +16,7 @@ subscribers:
   - name:        "Default input"
     topic:       "input/default"
     timeout:     0.1
-    priority:    0
+    priority:    20
     short_desc:  "The default ackermann_cmd, controllers unaware that we are multiplexing ackermann_cmd should come here"
   - name:        "Navigation stack"
     topic:       "input/navigation"

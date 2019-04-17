@@ -85,7 +85,7 @@ class JoyTeleop:
         topic_name = command['topic_name']
         try:
             topic_type = self.get_message_type(command['message_type'])
-            self.publishers[topic_name] = rospy.Publisher(topic_name, topic_type, queue_size=1)
+            #self.publishers[topic_name] = rospy.Publisher(topic_name, topic_type, queue_size=1)
         except JoyTeleopException as e:
             rospy.logerr("could not register topic for command {}: {}".format(name, str(e)))
 
@@ -224,7 +224,7 @@ class JoyTeleop:
 
                 self.set_member(msg, mapping['target'], val)
                 
-        self.publishers[cmd['topic_name']].publish(msg)
+        #self.publishers[cmd['topic_name']].publish(msg)
 
     def run_action(self, c, joy_state):
         cmd = self.command_list[c]

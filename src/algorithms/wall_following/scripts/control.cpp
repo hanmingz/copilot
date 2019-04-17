@@ -21,12 +21,12 @@ namespace control {
 	const int ANGLE_RANGE = 270; // Hokuyo 10LX has 270 degrees scan
 	const float HALF_WIDTH = 0.2;
 	const float CAR_LENGTH = 0.50; //0.5 meter
-	const float BUFFER_ZONE = 0.55;
+	const float BUFFER_ZONE = 0.2;
 	const float RMAX = 1.0;
 	float angle_left = 114.0;
 	float angle_right = 66.0;
 	
-	const float kp = 5.0;
+	const float kp = 100.0;
 	const float kd = 0.01;
 	const float ki = 0.0;
 
@@ -42,8 +42,8 @@ namespace control {
 	decision get_decision(const sensor_msgs::LaserScan::ConstPtr& data);
 	bool leftOk(float angle, float dist, float* trigger_d, float* trigger_theta);
 	bool rightOk(float angle, float dist, float* trigger_d, float* trigger_theta);
-	float followLeft(float left_dist);
-	float followRight(float right_dist);
+	float followLeft();
+	float followRight();
 
 	void laser_callback(const sensor_msgs::LaserScan::ConstPtr& data) {
 		if(ros::ok()) {
@@ -65,22 +65,18 @@ namespace control {
 				msg.drive.jerk = 1;
 			} else if(dec == FOLLOWL) {
 				ROS_INFO("LEFT");
-				int index = (int) round(data->ranges.size() * (179.9+45) / ANGLE_RANGE);
-				float left_d = data->ranges[index];
-				float error = followLeft(left_d);
-				msg.drive.steering_angle += kp * error * M_PI / 180.0;
+				msg.drive.steering_angle = followLeft();
 				msg.drive.speed = throttle * VMAX;
 				msg.drive.acceleration = 1;
 				msg.drive.jerk = 1;
+				ROS_INFO("%f", msg.drive.steering_angle);
 			} else if(dec == FOLLOWR) {
 				ROS_INFO("RIGHT");
-				int index = (int) round(data->ranges.size() * 45 / ANGLE_RANGE);
-				float right_d = data->ranges[index];
-				float error = followRight(right_d);
-				msg.drive.steering_angle += kp * error * M_PI / 180.0;
+				msg.drive.steering_angle = followRight();
 				msg.drive.speed = throttle * VMAX;
 				msg.drive.acceleration = 1;
 				msg.drive.jerk = 1;
+				ROS_INFO("%f", msg.drive.steering_angle);
 			} else {
 				// STOP
 				ROS_INFO("STOP");
@@ -151,7 +147,7 @@ namespace control {
 		ros::Duration delta_t = data->header.stamp - old_time;
 		float delta_d = old_min_dist - min_dist;
 		float appr_v = delta_d / ((float)delta_t.nsec / (double)1000000000L);
-		if(appr_v > min_dist && min_dist < 1.5){ //velocity and min_dist function to determine current
+		if(min_dist < 1.5){ //velocity and min_dist function to determine current
 			current = false;
 		}
 
@@ -193,24 +189,19 @@ namespace control {
 	}
 
 
-	float followLeft(float left_dist) {
-		float swing = trigger_L_theta * M_PI / 180.0;
-		float alpha = atan((trigger_L_d*cos(swing)-left_dist)/(trigger_L_d*cos(swing)));
-		float curr_dist = trigger_L_d*cos(alpha);
-		float future_dist = curr_dist - CAR_LENGTH * sin(alpha);
-		float error = (future_dist - BUFFER_ZONE)*5;
-
-		return error;
+	float followLeft() {
+		float theta = (90-trigger_L_theta) * M_PI / 180.0;
+		float d = trigger_L_d - BUFFER_ZONE;
+		float alpha = atan(d*sin(theta)/(HALF_WIDTH-d*cos(theta)));
+		return (alpha - M_PI/2.0);
 	}
 
-	float followRight(float right_dist) {
-		float swing = trigger_R_theta * M_PI / 180.0;
-		float alpha = atan((trigger_R_d*cos(swing)-right_dist)/(trigger_R_d*cos(swing)));
-		float curr_dist = trigger_R_d*cos(alpha);
-		float future_dist = curr_dist - CAR_LENGTH * sin(alpha);
-		float error = (BUFFER_ZONE - future_dist)*5;
+	float followRight() {
+		float theta = (90 + trigger_R_theta) * M_PI / 180.0;
+		float d = trigger_R_d - BUFFER_ZONE;
+		float alpha = atan(d*sin(theta)/(HALF_WIDTH-d*cos(theta)));
 
-		return error;
+		return (M_PI/2.0 - alpha);
 	}
 
 }
