@@ -28,6 +28,9 @@ namespace control {
 	float trigger_L_theta = 0.0;
 	float trigger_R_theta = 0.0;
 
+	float old_min_dist = 0.0;
+	ros::Time old_time;
+
 	float get_min_dist(const sensor_msgs::LaserScan::ConstPtr& data);
 	bool leftOk(float angle, float dist);
 	bool rightOk(float angle, float dist);
@@ -118,16 +121,21 @@ namespace control {
 			if(sin(abs((i-5)*15) * M_PI / 180) < (HALF_WIDTH / dist)){
 				min_dist = std::min(min_dist, dist);	
 				angle = turn*24 + (i-5) * 15; //angle relative to front, right is negative
-				if(dist < 1.5){
-					current = false;
-				}
-				
 				followL &= leftOk(angle, dist, &trigger_L_d, &trigger_L_theta);
 				followR &= rightOk(angle, dist, &trigger_R_d, &trigger_R_theta);	
 			}		
 		}
+		ros::Duration delta_t = data->header.stamp - old_time;
+		float delta_d = old_min_dist - min_dist;
+		float appr_v = delta_d / ((float)delta_t.nsec / (double)1000000000L);
+		if(appr_v > min_dist && min_dist < 1.5){ //velocity and min_dist function to determine current
+			current = false;
+		}
+
 		// Determin follow_right or follow_left or stop
-		if(current) {
+		old_time = data->header.stamp;
+		old_min_dist = min_dist;
+		if(current || throttle > 0) { //or in reverse
 			return CURRENT;
 		} else if(followL && followR) {
 			if(turn < 0){ //user turning right
