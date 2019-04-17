@@ -16,12 +16,19 @@ namespace control {
 	int deadman_butt = 0;
 	float throttle = 0.0;
 	float turn = 0.0;
+
 	const float VMAX = 2.00; // meters per second
 	const int ANGLE_RANGE = 270; // Hokuyo 10LX has 270 degrees scan
 	const float HALF_WIDTH = 0.2;
+	const float CAR_LENGTH = 0.50; //0.5 meter
+	const float BUFFER_ZONE = 0.55;
+	const float RMAX = 1.0;
 	float angle_left = 114.0;
 	float angle_right = 66.0;
-	const float RMAX = 1.0;
+	
+	const float kp = 5.0;
+	const float kd = 0.01;
+	const float ki = 0.0;
 
 	float trigger_L_d = 0.0;
 	float trigger_R_d = 0.0;
@@ -32,53 +39,70 @@ namespace control {
 	ros::Time old_time;
 
 	float get_min_dist(const sensor_msgs::LaserScan::ConstPtr& data);
-	bool leftOk(float angle, float dist);
-	bool rightOk(float angle, float dist);
+	decision get_decision(const sensor_msgs::LaserScan::ConstPtr& data);
+	bool leftOk(float angle, float dist, float* trigger_d, float* trigger_theta);
+	bool rightOk(float angle, float dist, float* trigger_d, float* trigger_theta);
+	float followLeft(float left_dist);
+	float followRight(float right_dist);
 
 	void laser_callback(const sensor_msgs::LaserScan::ConstPtr& data) {
 		if(ros::ok()) {
 			ackermann_msgs::AckermannDriveStamped msg;
 			decision dec = get_decision(data);
-
+			
 			//TODO add follow L, R, CURRENT, STOP
+			if(dec == CURRENT) {
+				// TODO: fix
+				ROS_INFO("CURRENT");
+				msg.drive.steering_angle = turn * 24 * M_PI / 180 + servo_offset;
 
-			float velocity_ratio = 0.5 * min_dist;
-			msg.drive.steering_angle = turn * 24 * M_PI / 180 + servo_offset;
-			if(min_dist < 2) {
-				velocity_ratio =  min_dist * min_dist * min_dist / 8.0;
-			}
-			if(velocity_ratio > 1) {
-				velocity_ratio = 1;
-			}
-
-			if(throttle < 0) {
-				ROS_INFO("velocity ratio: %f", velocity_ratio);
-				msg.drive.speed = velocity_ratio * throttle * VMAX;
+				if(throttle < 0) {
+					msg.drive.speed = throttle * VMAX;
+				} else {
+					msg.drive.speed = throttle * 0.5;
+				}
+				msg.drive.acceleration = 1;
+				msg.drive.jerk = 1;
+			} else if(dec == FOLLOWL) {
+				ROS_INFO("LEFT");
+				int index = (int) round(data->ranges.size() * (179.9+45) / ANGLE_RANGE);
+				float left_d = data->ranges[index];
+				float error = followLeft(left_d);
+				msg.drive.steering_angle += kp * error * M_PI / 180.0;
+				msg.drive.speed = throttle * VMAX;
+				msg.drive.acceleration = 1;
+				msg.drive.jerk = 1;
+			} else if(dec == FOLLOWR) {
+				ROS_INFO("RIGHT");
+				int index = (int) round(data->ranges.size() * 45 / ANGLE_RANGE);
+				float right_d = data->ranges[index];
+				float error = followRight(right_d);
+				msg.drive.steering_angle += kp * error * M_PI / 180.0;
+				msg.drive.speed = throttle * VMAX;
+				msg.drive.acceleration = 1;
+				msg.drive.jerk = 1;
 			} else {
-				msg.drive.speed = throttle;
+				// STOP
+				ROS_INFO("STOP");
+				msg.drive.speed = 0;
+				msg.drive.steering_angle = 0;
+				msg.drive.acceleration = 3;
+				msg.drive.jerk = 3;
 			}
+
+			if (msg.drive.steering_angle > 24 * M_PI / 180.0) {
+				msg.drive.steering_angle = 24 * M_PI / 180.0;
+			}
+			if(msg.drive.steering_angle < -24 * M_PI / 180.0) {
+				msg.drive.steering_angle = -24 * M_PI / 180.0;
+			}
+			msg.drive.steering_angle_velocity = 1;
+			msg.header.stamp = ros::Time::now();
+			msg.header.frame_id = "base_link";
 			if(deadman_butt == 0) {
 				msg.drive.speed = 0;
 				msg.drive.steering_angle = 0;
 			}
-			
-
-			if(min_dist < 1 && throttle < 0){
-				msg.drive.acceleration = 3;
-				msg.drive.jerk = 3;
-			} else {
-				msg.drive.acceleration = 1;
-				msg.drive.jerk = 1;
-			}
-			msg.drive.acceleration = 1;
-			msg.drive.jerk = 1;
-			/*if(abs(msg.drive.speed) < 0.1){
-				msg.drive.speed = 0;			
-			}*/
-
-			msg.drive.steering_angle_velocity = 1;
-			msg.header.stamp = ros::Time::now();
-			msg.header.frame_id = "base_link";
 			ackermann_pub_.publish(msg);
 			//ROS_INFO("Velocity: %f", msg.drive.speed);
 			//ROS_INFO("Angles in Degrees: %f", msg.drive.steering_angle*180/M_PI);
@@ -91,7 +115,6 @@ namespace control {
 		std::vector<float> axes = data->axes;
 		throttle = axes[1] * -1.0;
 		turn = axes[2];
-		//ROS_INFO("turn: %f", turn);
 	}
 
 
@@ -169,9 +192,26 @@ namespace control {
 		return pow(a, 2) + pow(b, 2) > pow(RMAX, 2);
 	}
 
-	//TODO: add follow left
-	float followLeft()
-	//TODO: add follow right
+
+	float followLeft(float left_dist) {
+		float swing = trigger_L_theta * M_PI / 180.0;
+		float alpha = atan((trigger_L_d*cos(swing)-left_dist)/(trigger_L_d*cos(swing)));
+		float curr_dist = trigger_L_d*cos(alpha);
+		float future_dist = curr_dist - CAR_LENGTH * sin(alpha);
+		float error = (future_dist - BUFFER_ZONE)*5;
+
+		return error;
+	}
+
+	float followRight(float right_dist) {
+		float swing = trigger_R_theta * M_PI / 180.0;
+		float alpha = atan((trigger_R_d*cos(swing)-right_dist)/(trigger_R_d*cos(swing)));
+		float curr_dist = trigger_R_d*cos(alpha);
+		float future_dist = curr_dist - CAR_LENGTH * sin(alpha);
+		float error = (BUFFER_ZONE - future_dist)*5;
+
+		return error;
+	}
 
 }
 
