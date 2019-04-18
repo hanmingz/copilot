@@ -147,7 +147,7 @@ namespace control {
 		ros::Duration delta_t = data->header.stamp - old_time;
 		float delta_d = old_min_dist - min_dist;
 		float appr_v = delta_d / ((float)delta_t.nsec / (double)1000000000L);
-		if(appr_v > min_dist && min_dist < 1.5){ //velocity and min_dist function to determine current
+		if((appr_v > min_dist && min_dist < 1.5) || (min_dist < BUFFER_ZONE)){ //velocity and min_dist function to determine current
 			current = false;
 		}
 
