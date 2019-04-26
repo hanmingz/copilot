@@ -9,7 +9,6 @@
 #include <sensor_msgs/Joy.h>
 #include <sensor_msgs/LaserScan.h>
 #include <ackermann_msgs/AckermannDriveStamped.h>
-#include <ackermann_msgs/mode.h>
 
 #define PORT 5005
 #define format "%d,%d,%d,%d,%d"
@@ -34,6 +33,7 @@ namespace UDPSender {
         //scale speed to 100, steering_angle to -100 to 100
         speed = data->drive.speed * 25;
         steering_angle = data->drive.steering_angle * 180.0 / M_PI * 4;
+        mode = data->mode;
     }
 
     void joy_callback(const sensor_msgs::Joy::ConstPtr& data) {
@@ -45,10 +45,6 @@ namespace UDPSender {
 
         sprintf(buffer, format, (int)steering_angle, (int)speed, (int)throttle, (int)turn, (int)mode);
         sendto(fd, (char*)buffer, strlen(buffer), MSG_CONFIRM, (struct sockaddr*) &servaddr, sizeof(servaddr));
-    }
-
-    void mode_callback(const ackermann_msgs::mode::ConstPtr& data){
-        mode = data->mode;
     }
 }
 
@@ -71,7 +67,6 @@ int main(int argc, char** argv) {
 
     UDPSender::control_sub_ = n.subscribe("vesc/ackermann_cmd_mux/input/teleop", 2, UDPSender::control_callback);
     UDPSender::joy_sub_ = n.subscribe("vesc/joy", 2, UDPSender::joy_callback);
-    //UDPSender::mode_sub_ = n.subscribe("ackermann_msgs/mode", 2, UDPSender::mode_callback);
     UDPSender::fd = fd;
     UDPSender::servaddr = servaddr;
 

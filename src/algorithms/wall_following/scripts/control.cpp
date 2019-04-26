@@ -3,7 +3,6 @@
 #include <sensor_msgs/Joy.h>
 #include <sensor_msgs/LaserScan.h>
 #include <ackermann_msgs/AckermannDriveStamped.h>
-#include <ackermann_msgs/mode.h>
 
 namespace control {
 	enum decision {CURRENT, FOLLOWL, FOLLOWR, STOP};
@@ -12,7 +11,6 @@ namespace control {
 	ros::Publisher ackermann_pub_;
 	ros::Subscriber laser_sub_;
 	ros::Subscriber joy_sub_;
-        ros::Publisher mode_pub_;
 
 	float servo_offset = 0.0;
 	int deadman_butt = 0;
@@ -51,7 +49,6 @@ namespace control {
 		if(ros::ok()) {
 			ackermann_msgs::AckermannDriveStamped msg;
 			decision dec = get_decision(data);
-                        ackermann_msgs::mode mode;
 			//TODO add follow L, R, CURRENT, STOP
 			if(dec == CURRENT) {
 				// TODO: fix
@@ -65,7 +62,7 @@ namespace control {
 				}
 				msg.drive.acceleration = 1;
 				msg.drive.jerk = 1;
-                                mode.mode = 1;
+                                msg.mode = 1;
 			} else if(dec == FOLLOWL) {
 				ROS_INFO("LEFT");
 				msg.drive.steering_angle = followLeft();
@@ -73,7 +70,7 @@ namespace control {
 				msg.drive.acceleration = 1;
 				msg.drive.jerk = 1;
 				ROS_INFO("%f", msg.drive.steering_angle);
-                                mode.mode = 2;
+                                msg.mode = 2;
 			} else if(dec == FOLLOWR) {
 				ROS_INFO("RIGHT");
 				msg.drive.steering_angle = followRight();
@@ -81,7 +78,7 @@ namespace control {
 				msg.drive.acceleration = 1;
 				msg.drive.jerk = 1;
 				ROS_INFO("%f", msg.drive.steering_angle);
-                                mode.mode = 3;
+                                msg.mode = 3;
 			} else {
 				// STOP
 				ROS_INFO("STOP");
@@ -89,7 +86,7 @@ namespace control {
 				msg.drive.steering_angle = 0;
 				msg.drive.acceleration = 5;
 				msg.drive.jerk = 3;
-                                mode.mode = 0;
+                                msg.mode = 0;
 			}
 
 			if (msg.drive.steering_angle > 24 * M_PI / 180.0) {
@@ -106,7 +103,6 @@ namespace control {
 				msg.drive.steering_angle = 0;
 			}
 			ackermann_pub_.publish(msg);
-                        mode_pub_.publish(mode);
 			//ROS_INFO("Velocity: %f", msg.drive.speed);
 			//ROS_INFO("Angles in Degrees: %f", msg.drive.steering_angle*180/M_PI);
 		}
@@ -248,7 +244,6 @@ int main(int argc, char** argv) {
 	ros::NodeHandle n;
 
 	control::ackermann_pub_ = n.advertise<ackermann_msgs::AckermannDriveStamped>("/vesc/ackermann_cmd_mux/input/teleop", 5);
-        control::mode_pub_ = n.advertise<ackermann_msgs::mode>("ackermann_msgs/mode", 2);
 	control::laser_sub_ = n.subscribe("scan", 2, control::laser_callback);
 	control::joy_sub_ = n.subscribe("vesc/joy", 2, control::joy_callback);
 	ROS_INFO("Start control node CPP!");
