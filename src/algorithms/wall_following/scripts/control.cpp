@@ -3,6 +3,7 @@
 #include <sensor_msgs/Joy.h>
 #include <sensor_msgs/LaserScan.h>
 #include <ackermann_msgs/AckermannDriveStamped.h>
+#include <ackermann_msgs/mode.h>
 
 namespace control {
 	enum decision {CURRENT, FOLLOWL, FOLLOWR, STOP};
@@ -11,17 +12,18 @@ namespace control {
 	ros::Publisher ackermann_pub_;
 	ros::Subscriber laser_sub_;
 	ros::Subscriber joy_sub_;
+        ros::Publisher mode_pub_;
 
 	float servo_offset = 0.0;
 	int deadman_butt = 0;
 	float throttle = 0.0;
 	float turn = 0.0;
 
-	const float VMAX = 2.00; // meters per second
+	const float VMAX = 4.00; // meters per second
 	const int ANGLE_RANGE = 270; // Hokuyo 10LX has 270 degrees scan
 	const float HALF_WIDTH = 0.2;
 	const float CAR_LENGTH = 0.50; //0.5 meter
-	const float BUFFER_ZONE = 0.2;
+	const float BUFFER_ZONE = 0.3;
 	const float RMAX = 1.0;
 	float angle_left = 114.0;
 	float angle_right = 66.0;
@@ -49,7 +51,7 @@ namespace control {
 		if(ros::ok()) {
 			ackermann_msgs::AckermannDriveStamped msg;
 			decision dec = get_decision(data);
-			
+                        ackermann_msgs::mode mode;
 			//TODO add follow L, R, CURRENT, STOP
 			if(dec == CURRENT) {
 				// TODO: fix
@@ -63,6 +65,7 @@ namespace control {
 				}
 				msg.drive.acceleration = 1;
 				msg.drive.jerk = 1;
+                                mode.mode = 1;
 			} else if(dec == FOLLOWL) {
 				ROS_INFO("LEFT");
 				msg.drive.steering_angle = followLeft();
@@ -70,6 +73,7 @@ namespace control {
 				msg.drive.acceleration = 1;
 				msg.drive.jerk = 1;
 				ROS_INFO("%f", msg.drive.steering_angle);
+                                mode.mode = 2;
 			} else if(dec == FOLLOWR) {
 				ROS_INFO("RIGHT");
 				msg.drive.steering_angle = followRight();
@@ -77,13 +81,15 @@ namespace control {
 				msg.drive.acceleration = 1;
 				msg.drive.jerk = 1;
 				ROS_INFO("%f", msg.drive.steering_angle);
+                                mode.mode = 3;
 			} else {
 				// STOP
 				ROS_INFO("STOP");
 				msg.drive.speed = 0;
 				msg.drive.steering_angle = 0;
-				msg.drive.acceleration = 3;
+				msg.drive.acceleration = 5;
 				msg.drive.jerk = 3;
+                                mode.mode = 0;
 			}
 
 			if (msg.drive.steering_angle > 24 * M_PI / 180.0) {
@@ -100,6 +106,7 @@ namespace control {
 				msg.drive.steering_angle = 0;
 			}
 			ackermann_pub_.publish(msg);
+                        mode_pub_.publish(mode);
 			//ROS_INFO("Velocity: %f", msg.drive.speed);
 			//ROS_INFO("Angles in Degrees: %f", msg.drive.steering_angle*180/M_PI);
 		}
@@ -147,7 +154,7 @@ namespace control {
 		ros::Duration delta_t = data->header.stamp - old_time;
 		float delta_d = old_min_dist - min_dist;
 		float appr_v = delta_d / ((float)delta_t.nsec / (double)1000000000L);
-		if((appr_v > min_dist && min_dist < 1.5) || (min_dist < BUFFER_ZONE)){ //velocity and min_dist function to determine current
+		if((appr_v > min_dist && min_dist < 3) || (min_dist < BUFFER_ZONE)){ //velocity and min_dist function to determine current
 			current = false;
 		}
 
@@ -158,14 +165,42 @@ namespace control {
 			return CURRENT;
 		} else if(followL && followR) {
 			if(turn < 0){ //user turning right
-				return FOLLOWL;			
+				int index = (int)(length * (45+45) / ANGLE_RANGE);
+				float dist = filtered[index];
+				if(dist > BUFFER_ZONE){
+					return FOLLOWL;
+				} else {
+					return STOP;
+				}		
 			} else if(turn > 0){ //user turning left
+				int index = (int)(length * (45+135) / ANGLE_RANGE);
+				float dist = filtered[index];
+				if(dist > BUFFER_ZONE){
+					return FOLLOWR;
+				} else {
+					return STOP;
+				}
+			} else {
+				return STOP;
+			}
+		} else if(followL){
+			int index = (int)(length * (45+45) / ANGLE_RANGE);
+			float dist = filtered[index];
+			if(dist > BUFFER_ZONE){
+				return FOLLOWL;
+			} else {
+				return STOP;
+			}
+		}
+		else if(followR) {
+			int index = (int)(length * (45+135) / ANGLE_RANGE);
+			float dist = filtered[index];
+			if(dist > BUFFER_ZONE){
 				return FOLLOWR;
 			} else {
 				return STOP;
 			}
-		} else if(followL){return FOLLOWL;}
-		else if(followR) {return FOLLOWR;}
+		}
 		else {return STOP;}
 	}
 
@@ -212,8 +247,8 @@ int main(int argc, char** argv) {
 	ros::init(argc, argv, "control", ros::init_options::AnonymousName);
 	ros::NodeHandle n;
 
-	control::ackermann_pub_ = n.advertise<ackermann_msgs::AckermannDriveStamped>
-	("/vesc/ackermann_cmd_mux/input/teleop", 5);
+	control::ackermann_pub_ = n.advertise<ackermann_msgs::AckermannDriveStamped>("/vesc/ackermann_cmd_mux/input/teleop", 5);
+        control::mode_pub_ = n.advertise<ackermann_msgs::mode>("ackermann_msgs/mode", 2);
 	control::laser_sub_ = n.subscribe("scan", 2, control::laser_callback);
 	control::joy_sub_ = n.subscribe("vesc/joy", 2, control::joy_callback);
 	ROS_INFO("Start control node CPP!");
