@@ -114,10 +114,18 @@ namespace control {
 		std::vector<float> axes = data->axes;
 		throttle = axes[1] * -1.0;
 		turn = axes[2];
+
+		if (buttons[1]) {
+			throttle = -0.25;
+		} else if (buttons[3]) {
+			throttle = -0.50;		
+		}
 	}
 
 
 	decision get_decision(const sensor_msgs::LaserScan::ConstPtr& data) {
+		static int ovrd_time = 0;
+		ovrd_time = std::max(0, ovrd_time);
 		float angle_min = data->angle_min;
 		float angle_max = data->angle_max;
 		float angle_inc = data->angle_increment;
@@ -157,34 +165,53 @@ namespace control {
 		// Determin follow_right or follow_left or stop
 		old_time = data->header.stamp;
 		old_min_dist = min_dist;
-		if(current || throttle > 0) { //or in reverse
+		if((current && ovrd_time == 0) || throttle > 0) { //or in reverse
 			return CURRENT;
 		} else if(followL && followR) {
 			if(turn < 0){ //user turning right
 				int index = (int)(length * (45+45) / ANGLE_RANGE);
 				float dist = filtered[index];
 				if(dist > BUFFER_ZONE){
+					if(ovrd_time == 0) {
+						ovrd_time =3;
+					} else {
+						ovrd_time--;
+					}
 					return FOLLOWL;
 				} else {
+					ovrd_time = 0;
 					return STOP;
 				}		
 			} else if(turn > 0){ //user turning left
 				int index = (int)(length * (45+135) / ANGLE_RANGE);
 				float dist = filtered[index];
 				if(dist > BUFFER_ZONE){
+					if(ovrd_time == 0) {
+						ovrd_time =3;
+					} else {
+						ovrd_time--;
+					}
 					return FOLLOWR;
 				} else {
+					ovrd_time = 0;
 					return STOP;
 				}
 			} else {
+				ovrd_time = 0;
 				return STOP;
 			}
 		} else if(followL){
 			int index = (int)(length * (45+45) / ANGLE_RANGE);
 			float dist = filtered[index];
 			if(dist > BUFFER_ZONE){
+				if(ovrd_time == 0) {
+					ovrd_time =3;
+				} else {
+					ovrd_time--;
+				}
 				return FOLLOWL;
 			} else {
+				ovrd_time = 0;
 				return STOP;
 			}
 		}
@@ -192,12 +219,20 @@ namespace control {
 			int index = (int)(length * (45+135) / ANGLE_RANGE);
 			float dist = filtered[index];
 			if(dist > BUFFER_ZONE){
+				if(ovrd_time == 0) {
+					ovrd_time =3;
+				} else {
+					ovrd_time--;
+				}
 				return FOLLOWR;
 			} else {
+				ovrd_time = 0;
 				return STOP;
 			}
+		} else {
+			ovrd_time = 0;
+			return STOP;
 		}
-		else {return STOP;}
 	}
 
 	bool leftOk(float angle, float dist, float* trigger_d, float* trigger_theta){
