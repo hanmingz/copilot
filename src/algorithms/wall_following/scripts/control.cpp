@@ -17,7 +17,7 @@ namespace control {
 	float throttle = 0.0;
 	float turn = 0.0;
 
-	const float VMAX = 4.00; // meters per second
+	const float VMAX = 4.0; // meters per second
 	const int ANGLE_RANGE = 270; // Hokuyo 10LX has 270 degrees scan
 	const float HALF_WIDTH = 0.2;
 	const float CAR_LENGTH = 0.50; //0.5 meter
@@ -145,12 +145,12 @@ namespace control {
 		trigger_R_d = 0.0;
 		trigger_L_theta = 0.0;
 		trigger_R_theta = 0.0;
-		for(int i = 0; i < 11; i++){
-			int index = (int)(length * (turn * 24 + 90 + 45 + (i - 5) * 15) / ANGLE_RANGE);
+                for(int i = 0; i < 31; i++){
+                        int index = (int)(length * (turn * 24 + 90 + 45 + (i - 15) * 5) / ANGLE_RANGE);
 			float dist = filtered[index];
-			if(sin(abs((i-5)*15) * M_PI / 180) < (HALF_WIDTH / dist)){
+                        if(sin(abs((i-15)*5) * M_PI / 180) < (HALF_WIDTH / dist)){
 				min_dist = std::min(min_dist, dist);	
-				angle = turn*24 + (i-5) * 15; //angle relative to front, right is negative
+                                angle = turn*24 + (i-15) * 5; //angle relative to front, right is negative
 				followL &= leftOk(angle, dist, &trigger_L_d, &trigger_L_theta);
 				followR &= rightOk(angle, dist, &trigger_R_d, &trigger_R_theta);	
 			}		
