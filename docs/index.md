@@ -28,6 +28,6 @@ After studying algorithm on wall following and gap finding, we decide to impleme
 After testing, we realized that the car would attempt to turn away from an obstacle for very short period of time, before it becomes too close to the obstacle and engages emergency braking. The reason is that once it turn away a little, it thinks it is safe again and follows user input of going straight. When it detects it is too close to obstacle again, the distance is already too small to turn. Our solution is to transform into sequential logic, and keep obstacle override for at least 0.2 seconds once it gets activated, so the car can turn for a longer time away from obstacle.
 
 ### Week 4: Dashboard
-<img src="dashboard.png" alt="hi" class="inline"/>
+<img src="dashboard.PNG" alt="hi" class="inline"/>
 
 In order to monitor the car's status in real time, we created a sender node on the car that sends out mode and driving parameters via UDP. On a computer, we visuallize the data with a GUI written with python tkinter. The yellow lines are driver input levels, and white bars are actual control sent to car. In the above diagram, the driver is instructing 2 m/s speed, and the actual control is 2 m/s because throttle is not overridden. But the driver is not steering, and there's obstacle to the left of car, so steering is overridden with a full right to avoid obstacle. 
