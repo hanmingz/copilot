@@ -17,12 +17,13 @@ namespace control {
 	float throttle = 0.0;
 	float turn = 0.0;
 
-	const float VMAX = 4.0; // meters per second
+	const float VMAX = 8.0; // meters per second
 	const int ANGLE_RANGE = 270; // Hokuyo 10LX has 270 degrees scan
 	const float HALF_WIDTH = 0.2;
 	const float CAR_LENGTH = 0.50; //0.5 meter
 	const float BUFFER_ZONE = 0.3;
 	const float RMAX = 1.0;
+        const float ACTIVATE_DIST = VMAX;
 	float angle_left = 114.0;
 	float angle_right = 66.0;
 	
@@ -35,6 +36,7 @@ namespace control {
 	float trigger_L_theta = 0.0;
 	float trigger_R_theta = 0.0;
 
+	bool stopping = false;
 	float old_min_dist = 0.0;
 	ros::Time old_time;
 
@@ -50,9 +52,14 @@ namespace control {
 			ackermann_msgs::AckermannDriveStamped msg;
 			decision dec = get_decision(data);
 			//TODO add follow L, R, CURRENT, STOP
-			if(dec == CURRENT) {
+			if(stopping){
+				msg.drive.speed = 0;
+				msg.drive.acceleration = 8;
+				msg.drive.jerk = 8;
+				msg.mode = 0;
+			} else if(dec == CURRENT) {
 				// TODO: fix
-				ROS_INFO("CURRENT");
+
 				msg.drive.steering_angle = turn * 24 * M_PI / 180 + servo_offset;
 
 				if(throttle < 0) {
@@ -60,32 +67,32 @@ namespace control {
 				} else {
 					msg.drive.speed = throttle * 0.5;
 				}
-				msg.drive.acceleration = 1;
-				msg.drive.jerk = 1;
+                                msg.drive.acceleration = 3;
+                                msg.drive.jerk = 2;
                                 msg.mode = 1;
 			} else if(dec == FOLLOWL) {
-				ROS_INFO("LEFT");
+
 				msg.drive.steering_angle = followLeft();
 				msg.drive.speed = throttle * VMAX;
-				msg.drive.acceleration = 1;
-				msg.drive.jerk = 1;
-				ROS_INFO("%f", msg.drive.steering_angle);
+                                msg.drive.acceleration = 3;
+                                msg.drive.jerk = 2;
+
                                 msg.mode = 2;
 			} else if(dec == FOLLOWR) {
-				ROS_INFO("RIGHT");
+
 				msg.drive.steering_angle = followRight();
 				msg.drive.speed = throttle * VMAX;
-				msg.drive.acceleration = 1;
-				msg.drive.jerk = 1;
-				ROS_INFO("%f", msg.drive.steering_angle);
+                                msg.drive.acceleration = 3;
+                                msg.drive.jerk = 2;
+
                                 msg.mode = 3;
 			} else {
 				// STOP
-				ROS_INFO("STOP");
+				stopping = true;
 				msg.drive.speed = 0;
 				msg.drive.steering_angle = 0;
-				msg.drive.acceleration = 5;
-				msg.drive.jerk = 3;
+                                msg.drive.acceleration = 8;
+				msg.drive.jerk = 8;
                                 msg.mode = 0;
 			}
 
@@ -116,10 +123,14 @@ namespace control {
 		turn = axes[2];
 
 		if (buttons[1]) {
-			throttle = -0.25;
+			throttle = -0.125;
 		} else if (buttons[3]) {
-			throttle = -0.50;		
-		}
+			throttle = -0.25;		
+                } else if(buttons[0]) {
+                        throttle = -0.50;
+                } else if(buttons[2]) {
+                        throttle = -0.75;
+                }
 	}
 
 
@@ -151,16 +162,20 @@ namespace control {
                         if(sin(abs((i-15)*5) * M_PI / 180) < (HALF_WIDTH / dist)){
 				min_dist = std::min(min_dist, dist);	
                                 angle = turn*24 + (i-15) * 5; //angle relative to front, right is negative
-				followL &= leftOk(angle, dist, &trigger_L_d, &trigger_L_theta);
-				followR &= rightOk(angle, dist, &trigger_R_d, &trigger_R_theta);	
+                                followR &= leftOk(angle, dist, &trigger_L_d, &trigger_L_theta);
+                                followL &= rightOk(angle, dist, &trigger_R_d, &trigger_R_theta);
 			}		
 		}
 		ros::Duration delta_t = data->header.stamp - old_time;
 		float delta_d = old_min_dist - min_dist;
 		float appr_v = delta_d / ((float)delta_t.nsec / (double)1000000000L);
-		if((appr_v > min_dist && min_dist < 3) || (min_dist < BUFFER_ZONE)){ //velocity and min_dist function to determine current
+                
+		if(appr_v > 3.0){appr_v = appr_v * 1.5;}
+		if((appr_v > min_dist && min_dist < ACTIVATE_DIST) || (min_dist < BUFFER_ZONE)){ //velocity and min_dist function to determine current
 			current = false;
 		}
+
+		if(appr_v < 0.1){stopping = false;}
 
 		// Determin follow_right or follow_left or stop
 		old_time = data->header.stamp;
@@ -251,7 +266,7 @@ namespace control {
 		float b = dist * cos(angle);
 		if(dist < *trigger_d){
 			*trigger_d = dist;
-			*trigger_theta = angle;
+                        *trigger_theta = -1.0 *  angle;
 		}
 		return pow(a, 2) + pow(b, 2) > pow(RMAX, 2);
 	}

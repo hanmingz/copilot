@@ -31,7 +31,7 @@ namespace UDPSender {
 
     void control_callback(const ackermann_msgs::AckermannDriveStamped::ConstPtr& data) {
         //scale speed to 100, steering_angle to -100 to 100
-        speed = data->drive.speed * 25;
+        speed = data->drive.speed * 12.50;
         steering_angle = data->drive.steering_angle * 180.0 / M_PI * 4;
         mode = data->mode;
     }
