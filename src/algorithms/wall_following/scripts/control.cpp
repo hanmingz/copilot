@@ -91,7 +91,7 @@ namespace control {
 				stopping = true;
 				msg.drive.speed = 0;
 				msg.drive.steering_angle = 0;
-                                msg.drive.acceleration = 8;
+                                msg.drive.acceleration = 12;
 				msg.drive.jerk = 8;
                                 msg.mode = 0;
 			}
