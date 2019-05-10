@@ -1,6 +1,7 @@
 # Copilot
 
 ## Please check out cpp branch, src/algorithms/wall_following for real code
+## checkout video https://vimeo.com/335497834
 
 <img src="icon.jpg" alt="hi" class="inline"/>
 
